@@ -1,13 +1,18 @@
 (function(window) {
   var _start = Date.now();
 
-  function get_random_color() {
+  function get_random_color(generation) {
+    var color = Color('#0186d1');
+    return color.darken(0.1 * (generation ? generation - 1 : 0)).hexString();
+  }
+
+  function get_random_color_O(bug) {
     var letters = '0123456789ABCDEF'.split('');
     var color = '#';
     for (var i = 0; i < 6; i++ ) {
         color += letters[ Math.round(Math.random() * 15) ];
     }
-    return color;
+    return '#0186d1';
   }
 
   function getCenterPosition(a, b) {
@@ -81,14 +86,14 @@
         creature.mapping = {
           x: this.WIDTH * pos.x,
           y: this.HEIGHT * pos.y,
-          c: get_random_color()
+          c: get_random_color(creature.generation)
         }
       }
       var c = this.map.circle(creature.mapping.x, creature.mapping.y, creature.size);
       c.attr('fill', creature.mapping.c);
-      c.attr('stroke', creature.native ? 'transparent' : 'black');
-      c.attr('stroke-width', creature.generation);
-      c.attr('stroke-opacity', 0.5);
+      c.attr('stroke', 'transparent');
+      //c.attr('stroke-width', creature.generation);
+      //c.attr('stroke-opacity', 0.5);
       this._instances[creature.instanceID] = c;
       c.instanceID = creature.instanceID;
     },
@@ -128,10 +133,13 @@
     this.gene = {};
     // When we're born.
     if (!parents) {
+      this.MAX_STAGE = this.MAX_STAGE + Math.ceil(Math.random() * this.generation);
       this.native = true;
       this.burn();
     } else {
       this.parents = parents;
+      this.MAX_STAGE = Math.max(parents[0].MAX_STAGE, parents[1].MAX_STAGE) +
+                        Math.ceil(Math.random() * this.generation);
       this.generation = Math.max(parents[0].generation, parents[1].generation) + 1;
       this.native = false;
       this.heredity();
@@ -190,7 +198,7 @@
     this.mapping = {
       x: pos.x,
       y: pos.y,
-      c: get_random_color()
+      c: get_random_color(this.generation)
     };
 
     this.publish('request-render', this);
@@ -223,7 +231,9 @@
       this.publish('revoluted');
       this.resetLifeCycle();
       // Longer life check.
-      this.MAX_STAGE = this.MAX_STAGE + (Math.random() <= 0.25 ? 1 : 0);
+      this.MAX_STAGE = this.MAX_STAGE + (Math.random() <= 0.01 ? 1 : 0);
+      // Sudden death.
+      this.MAX_STAGE = Math.random() <= 0.1 ? this.stage + 1 : this.MAX_STAGE;
     } else {
       this.destroy();
     }
@@ -350,6 +360,8 @@
   var DashBoard = {
     WIDTH: 100,
     count: 0,
+    born: 0,
+    dead: 0,
 
     init: function() {
       this.map = Raphael(Environment.WIDTH, 0, this.WIDTH, Environment.HEIGHT);
@@ -366,13 +378,33 @@
           break;
         case 'bug_request-render':
           this.count++;
+          this.born++;
+          this.updateBorn(this.born);
           this.updateCount(this.count);
           break;
         case 'bug_destroyed':
           this.count--;
+          this.dead++;
+          this.updateDead(this.dead);
           this.updateCount(this.count);
           break;
       }
+    },
+
+    updateBorn: function(count) {
+      if (!this._countText) {
+        this._bornText =
+          this.map.text(5, 25, 'Born: ' + count).attr('text-anchor', 'start');
+      }
+      this._bornText.attr('text', 'Born: ' + count);
+    },
+
+    updateDead: function(count) {
+      if (!this._deadText) {
+        this._deadText =
+          this.map.text(5, 35, 'Death: ' + count).attr('text-anchor', 'start');
+      }
+      this._deadText.attr('text', 'Death: ' + count);
     },
 
     updateCount: function(count) {
